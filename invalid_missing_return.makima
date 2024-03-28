@@ -1,0 +1,11 @@
+fn foo () -> None {
+
+}
+
+fn bar () -> None {
+
+}
+
+fn main () {
+
+}

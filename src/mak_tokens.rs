@@ -23,14 +23,15 @@ pub enum TokenType {
 pub struct Token {
     pub token_type_: TokenType,
     pub contents_: String,
+    pub line_: usize
 }
 
 impl Token {
-    pub fn new(contents: String) -> Self{
+    pub fn new(contents: String, line: usize) -> Self{
         let slice = &contents[0..contents.len()];
 
         //Floats may be difficult -- will need to lookahead for certain expressions
-        let operators = ["+", "-", "*", "/", "=", ".", "(", ")", "{", "}", ";", ",", "==", "<=", ">=", "<", ">"];
+        let operators = ["+", "-", "*", "/", "=", ".", "(", ")", "{", "}", ";", ",", "==", "<=", ">=", "<", ">", "->"];
         let keywords = ["let", "fn", "if", "else", "elif", "return", "while"];
 
         let token_type: TokenType;
@@ -40,6 +41,6 @@ impl Token {
             _ => { token_type = TokenType::Atom; },
         }
 
-        return Token{token_type_:token_type, contents_:contents.clone()};
+        return Token{token_type_:token_type, contents_:contents.clone(), line_: line};
     }
 }

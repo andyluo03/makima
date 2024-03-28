@@ -26,6 +26,7 @@ impl Lexer {
         let key_chars = ['+', '-', '*', '/', '=', '.', '(', ')', '{', '}', ';', ',', '=', '<', '>'];
         let as_chars:Vec<_> = input.chars().collect();
 
+        let mut line: usize = 1;
         let mut read_ahead = false;
         for idx in 0..as_chars.len() {
             //Slow!
@@ -37,26 +38,41 @@ impl Lexer {
             let i = as_chars[idx];
 
             if i == ' ' || i == '\n' || key_chars.contains(&i) {
+                if i == '\n' {
+                    line = line + 1;
+                }
+
                 if buffer.len() > 0 {
-                    tokens.push(Token::new(buffer.clone())); //could try to avoid a clone with a move...
+                    tokens.push(Token::new(buffer.clone(), line)); //could try to avoid a clone with a move...
                 }
 
                 buffer.clear();
 
                 if key_chars.contains(&i) {
                     match i {
+                        //This can be generalized with lookahead for *all* two character operators...
                         '=' | '<' | '>' => {
                             if idx + 1 < as_chars.len() && as_chars[idx+1]== '=' {
                                 let mut combined_operator = i.to_string();
                                 combined_operator.push('=');
-                                tokens.push(Token::new(combined_operator));
+                                tokens.push(Token::new(combined_operator, line));
 
                                  read_ahead = true;
                             } else {
-                                tokens.push(Token::new(i.to_string()));
+                                tokens.push(Token::new(i.to_string(), line));
                             }
                         }
-                        _ => {tokens.push(Token::new(i.to_string()));}
+                        '-' => {
+                            if idx + 1 < as_chars.len() && as_chars[idx+1] == '>' {
+                                let mut combined_operator = i.to_string();
+                                combined_operator.push('>');
+                                tokens.push(Token::new(combined_operator, line));
+                                read_ahead = true;
+                            } else {
+                                tokens.push(Token::new(i.to_string(), line));
+                            }
+                        }
+                        _ => {tokens.push(Token::new(i.to_string(), line));}
                     }
                 }
                 continue;
@@ -66,7 +82,7 @@ impl Lexer {
         }
 
         if buffer.len() > 0 {
-            tokens.push(Token::new(buffer.clone())); //could try to avoid a clone...
+            tokens.push(Token::new(buffer.clone(), line)); //could try to avoid a clone...
         }
 
         return Lexer{tokens_: tokens, state_: 0};
@@ -78,6 +94,6 @@ impl Lexer {
     }
 
     pub fn peek(&self) -> Token {
-        return if self.state_ >= self.tokens_.len() { Token {token_type_: TokenType::EoF, contents_: "".to_string()} } else { self.tokens_[self.state_].clone() };
+        return if self.state_ >= self.tokens_.len() { Token {token_type_: TokenType::EoF, contents_: "".to_string(), line_: 0} } else { self.tokens_[self.state_].clone() };
     }
 }

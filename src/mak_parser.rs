@@ -24,12 +24,13 @@ pub struct Parser {
 pub struct FunctionTokenBlock {
     pub name_: String,
     pub arguments_: Vec<Token>, //this will be parsed... later!
-    pub contents_: Vec<Token>
+    pub return_: Vec<Token>,
+    pub contents_: Vec<Token>,
 }
 
 impl FunctionTokenBlock {
     fn new() -> Self{
-        return FunctionTokenBlock{name_:"".to_string(), arguments_: vec![], contents_: vec![]};
+        return FunctionTokenBlock{name_:"".to_string(), arguments_: vec![], return_: vec![], contents_: vec![]};
     }
 
     fn set_name(&mut self, name: &String){
@@ -42,6 +43,10 @@ impl FunctionTokenBlock {
 
     fn add_argument(&mut self, token: &Token){
         self.arguments_.push(token.clone());
+    }
+
+    fn add_return(&mut self, token: &Token){
+        self.return_.push(token.clone());
     }
 }
 
@@ -70,7 +75,8 @@ impl Parser {
         enum FunctionParseState {
             OutsideFunction,
             FunctionName, //ends on (, but if there are multiple tokens :<
-            FunctionArguments, //ends on ), peek next -- if not "{" then except.
+            FunctionArguments, //ends on ), peek next -- if not "->" then except.
+            FunctionReturn, //ends on "{"
             FunctionInterior, //ends on } AND unmatched_left_brackets = 0 and goes back to OutsideFunction
         }
 
@@ -83,11 +89,10 @@ impl Parser {
 
         while idx < tokens.len() {
             let current_token = tokens[idx].clone(); //unnecessary copy!
-            dbg!(&state);
             match state {
                 FunctionParseState::OutsideFunction => {
-                    if tokens[idx].contents_ != "fn" {
-                        panic!("Line: {}: Expected {} but found {}", 0, "fn", tokens[idx].contents_);
+                    if current_token.contents_ != "fn" {
+                        panic!("Line: {}: Expected {} but found {}", current_token.line_, "fn", tokens[idx].contents_);
                     }
                     
                     current_function = FunctionTokenBlock::new();
@@ -97,7 +102,7 @@ impl Parser {
 
                 FunctionParseState::FunctionName => {
                     if tokens[idx].token_type_ != TokenType::Atom {
-                        panic!("Line: {}: Expected function name but got: {}", 0, tokens[idx].contents_);
+                        panic!("Line: {}: Expected function name but got: {}", current_token.line_, tokens[idx].contents_);
                     }
 
                     if idx + 1 >= tokens.len() {
@@ -105,25 +110,25 @@ impl Parser {
                     }
 
                     if tokens[idx + 1].contents_ != "(" && tokens[idx + 1].token_type_ != TokenType::Operator {
-                        panic!("Line: {}: Expected ( but found {}", 0, tokens[idx+1].contents_);
+                        panic!("Line: {}: Expected ( but found {}", current_token.line_, tokens[idx+1].contents_);
                     }
 
                     current_function.set_name(&tokens[idx].contents_);
-                    idx = idx + 1;
+                    idx = idx + 2;
                     state = FunctionParseState::FunctionArguments;
                 },
 
                 FunctionParseState::FunctionArguments => {
                     if current_token.contents_ == ")" {
                         if idx + 1 >= tokens.len() {
-                            panic!("Line: {}: Expected function contents but file ended.", 0);
+                            panic!("Line: {}: Expected function contents but file ended.", current_token.line_);
                         }
 
-                        if tokens[idx + 1].contents_ != "{" {
-                            panic!("Line: {}: Expected {} but found {}", 0, "{", tokens[idx+1].contents_);
+                        if tokens[idx + 1].contents_ != "->" {
+                            panic!("Line: {}: Expected -> but found {}", current_token.line_, tokens[idx+1].contents_);
                         }
 
-                        state = FunctionParseState::FunctionInterior;
+                        state = FunctionParseState::FunctionReturn;
                         idx = idx + 2;
                         continue;
                     }
@@ -132,11 +137,27 @@ impl Parser {
                     idx = idx + 1;
                 },
 
+                FunctionParseState::FunctionReturn => {
+                    if idx + 1 >= tokens.len() {
+                        panic!("File ends with function declaration {} incomplete.", current_function.name_);
+                    }
+
+                    if current_token.contents_ == "{" {
+                        state = FunctionParseState::FunctionInterior;
+                        idx = idx+1;
+                        continue;
+                    }
+
+                    current_function.add_return(&current_token);
+                    idx = idx+1;
+                },
+
                 FunctionParseState::FunctionInterior => {
                     if tokens[idx].contents_ == "}" && unmatched_left_brackets == 0 {
                         functions.append(&mut vec![current_function.clone()]);
                         state = FunctionParseState::OutsideFunction;
                         idx = idx + 1;
+                        continue;
                     }
 
                     if current_token.contents_ == "{" && current_token.token_type_ == TokenType::Operator {

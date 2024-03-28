@@ -9,11 +9,14 @@ mod mak_parser;
 mod mak_basic_block;
 mod mak_control_flow;
 
+use std::fs;
+
 use crate::mak_lexer::*;
 use crate::mak_expression::*;
 use crate::mak_parser::*;
 
 fn main() {
+    /*
     let test: String = 
         "
         fn main () {
@@ -24,9 +27,12 @@ fn main() {
             }
         }
         ".to_string();
-
-    let tokens = Lexer::from_string(&test);
-    //dbg!(&tokens);
+    */
+    
+    let args: Vec<_> = std::env::args().collect();
+    let example = fs::read_to_string(args[1].clone()).unwrap();
+    let tokens = Lexer::from_string(&example);
+    dbg!(&tokens);
     let functions = Parser::get_functions(tokens.tokens_.clone());
     dbg!(&functions);
 }
